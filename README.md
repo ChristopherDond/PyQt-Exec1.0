@@ -5,3 +5,5 @@ Initial development of exercises and test cases using the PyQt5 framework, inclu
 PyQt1.py: Simple registration system using data in the Brazilian standard, with CPF and RG verifications and handling, fully integrated with the Brazilian postal code system.
 
 PyQt2.py: PyQt address system! Simplified using the ViaCEP API, fully integrated with the Brazilian postal code system
+
+PyQt3.py: Testing an API where, when a cryptocurrency name is entered, the API (CoinGecko) automatically retrieves the cryptocurrency value and converts it to Brazilian Real and US Dollar.
