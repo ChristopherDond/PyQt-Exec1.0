@@ -5,254 +5,236 @@ import threading
 import asyncio
 import edge_tts
 import shutil
+import torch
+import pygame
+import webbrowser
 from dotenv import load_dotenv
 from groq import Groq
 from PyQt5.QtWidgets import (QApplication, QWidget, QLabel, QVBoxLayout,
                              QPushButton, QTextEdit, QDateEdit, QLineEdit,
-                             QHBoxLayout, QStackedWidget, QMessageBox, QListWidget, 
-                             QFileDialog, QComboBox, QTabWidget, QFrame)
+                             QHBoxLayout, QMessageBox, QComboBox, QTabWidget, 
+                             QFileDialog, QProgressDialog)
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt, QDate
 from deep_translator import GoogleTranslator
-import pygame
 from PIL import Image, ImageEnhance, ImageOps
+from diffusers import AnimateDiffPipeline, MotionAdapter, DPMSolverMultistepScheduler
+from diffusers.utils import export_to_video
 
 load_dotenv()
 
 NASA_API_KEY = os.getenv("NASA_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-
 client = Groq(api_key=GROQ_API_KEY)
+
 pygame.mixer.init()
 
-CAMINHO_IMAGEM_TEMP = "temp_nasa_image.jpg"
+IMG_TEMP = "temp_nasa_image.jpg"
+VID_TEMP = "temp_ia_video.mp4"
 
-conteudo_atual = {
-    'titulo_en': '', 'titulo_pt': '', 'expl_en': '',
-    'expl_pt': '', 'relatorio_ia': '', 'url_imagem': ''
+data_store = {
+    'en_title': '', 'pt_title': '', 'en_expl': '',
+    'pt_expl': '', 'ia_report': '', 'url': ''
 }
 
-def salvar_imagem():
-    if not os.path.exists(CAMINHO_IMAGEM_TEMP):
-        QMessageBox.warning(janela, "Erro", "Não há imagem para salvar!")
-        return
-    caminho, _ = QFileDialog.getSaveFileName(janela, "Salvar Imagem", "", "JPEG (*.jpg);;PNG (*.png)")
-    if caminho:
-        try:
-            shutil.copy(CAMINHO_IMAGEM_TEMP, caminho)
-            QMessageBox.information(janela, "Sucesso", "Imagem salva com sucesso!")
-        except Exception as e:
-            QMessageBox.critical(janela, "Erro", f"Falha ao salvar: {e}")
-
-def buscar_palavra_chave():
-    termo = campo_pesquisa.text()
-    if not termo: 
-        combo_resultados.hide()
-        return
-    
-    titulo_label.setText("BUSCANDO...")
-    combo_resultados.clear()
-    
+def traduzir(texto):
     try:
-        url = f"https://images-api.nasa.gov/search?q={termo}&media_type=image"
-        res = requests.get(url, timeout=10)
-        res.raise_for_status()
-        itens = res.json().get('collection', {}).get('items', [])[:15]
-        
-        if not itens:
-            combo_resultados.hide()
-            titulo_label.setText("NENHUM RESULTADO ENCONTRADO")
-            return
-        
-        combo_resultados.addItem(f"🔍 {len(itens)} resultados encontrados...")
-        
-        for i in itens:
-            dados = i['data'][0]
-            titulo = dados.get('title', 'Sem título')
-            link_img = i['links'][0]['href']
-            expl = dados.get('description', 'Sem descrição')
-            
-            combo_resultados.addItem("⭐ " + titulo)
-            index = combo_resultados.count() - 1
-            combo_resultados.setItemData(index, {"url": link_img, "title": titulo, "expl": expl}, Qt.UserRole)
-        
-        combo_resultados.show()
-        combo_resultados.showPopup()
-        
-    except Exception as e:
-        QMessageBox.critical(janela, "Erro de Conexão", f"Não foi possível buscar: {str(e)}")
-        titulo_label.setText("ERRO NA BUSCA")
+        return GoogleTranslator(source='auto', target='pt').translate(texto) if texto else ""
+    except:
+        return "Erro na tradução."
 
-def carregar_da_combo(index):
-    if index <= 0: return
-    dados = combo_resultados.itemData(index, Qt.UserRole)
-    if dados:
-        exibir_conteudo_final(dados['url'], dados['title'], dados['expl'])
-
-def atualizar_abas():
-    aba_ingles.setPlainText(f"{conteudo_atual['titulo_en']}\n\n{conteudo_atual['expl_en']}")
-    aba_portugues.setPlainText(f"{conteudo_atual['titulo_pt']}\n\n{conteudo_atual['expl_pt']}")
-    aba_ia.setPlainText(conteudo_atual['relatorio_ia'])
-
-def exibir_conteudo_final(url_media, titulo_en, expl_en):
-    if not url_media:
-        QMessageBox.warning(janela, "Aviso", "Este item não possui uma URL de imagem válida.")
-        return
-
+def gerar_relatorio_ia(descricao):
     try:
-        titulo_pt = traduzir_texto(titulo_en)
-        expl_pt = traduzir_texto(expl_en)
-        relatorio_ia = gerar_relatorio_ia(expl_en)
-
-        res = requests.get(url_media, timeout=15)
-        res.raise_for_status()
-        
-        with open(CAMINHO_IMAGEM_TEMP, "wb") as f:
-            f.write(res.content)
-        
-        try:
-            with Image.open(CAMINHO_IMAGEM_TEMP) as img:
-                img = img.convert("RGB")
-                img = ImageOps.autocontrast(img)
-                enhancer = ImageEnhance.Sharpness(img)
-                img = enhancer.enhance(1.6).save(CAMINHO_IMAGEM_TEMP, quality=95)
-        except Exception as img_err:
-            print(f"Erro ao processar filtros: {img_err}")
-
-        # Atualiza Interface
-        conteudo_atual.update({
-            'titulo_en': titulo_en, 'expl_en': expl_en,
-            'titulo_pt': titulo_pt, 'expl_pt': expl_pt,
-            'relatorio_ia': relatorio_ia, 'url_imagem': url_media
-        })
-
-        titulo_label.setText(f"{titulo_pt.upper()}\n({titulo_en.upper()})")
-        pixmap = QPixmap(CAMINHO_IMAGEM_TEMP)
-        imagem_label.setPixmap(pixmap.scaled(imagem_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
-        imagem_label.setScaledContents(True)
-        
-        atualizar_abas()
-        tabs_descricao.setCurrentIndex(0)
-        
-    except Exception as e:
-        QMessageBox.critical(janela, "Erro", f"Falha ao carregar conteúdo: {str(e)}")
-
-def traduzir_texto(texto):
-    try:
-        if not texto or texto == "No explanation": return "Sem descrição."
-        return GoogleTranslator(source='auto', target='pt').translate(texto)
-    except: return "Erro na tradução."
-
-def gerar_relatorio_ia(descricao_nasa):
-    try:
-        prompt = f"Relatório detalhado em PT-BR (MAIÚSCULAS PARA TÍTULOS, SEM MARKDOWN): {descricao_nasa}"
-        completion = client.chat.completions.create(model="llama-3.1-8b-instant", messages=[{"role": "user", "content": prompt}])
+        prompt = f"Gere um relatório detalhado em PORTUGUÊS-BR sobre: {descricao}. Use títulos em MAIÚSCULAS e sem Markdown."
+        completion = client.chat.completions.create(
+            model="llama-3.1-8b-instant", 
+            messages=[{"role": "user", "content": prompt}]
+        )
         return completion.choices[0].message.content
-    except: return "Erro ao gerar análise da IA."
+    except:
+        return "Erro ao gerar análise da IA."
 
-def carregar_conteudo():
-    data_selecionada = calendario.date()
-    if data_selecionada > QDate.currentDate():
-        QMessageBox.warning(janela, "Data Inválida", "A NASA ainda não viajou para o futuro! Selecione a data de hoje ou anterior.")
-        return
-
-    data_str = data_selecionada.toString("yyyy-MM-dd")
-    url = f"https://api.nasa.gov/planetary/apod?api_key={NASA_API_KEY}&date={data_str}"
+def processar_imagem(conteudo):
+    with open(IMG_TEMP, "wb") as f:
+        f.write(conteudo)
     try:
-        res = requests.get(url, timeout=10).json()
-        if 'url' in res:
-            exibir_conteudo_final(res.get('url'), res.get('title'), res.get('explanation'))
-            combo_resultados.hide()
-        else:
-            QMessageBox.information(janela, "Aviso", "Nenhum dado disponível para esta data.")
-    except Exception as e: 
-        QMessageBox.critical(janela, "Erro", f"Erro ao acessar APOD: {e}")
+        with Image.open(IMG_TEMP) as img:
+            img = ImageOps.autocontrast(img.convert("RGB"))
+            img = ImageEnhance.Sharpness(img).enhance(1.6)
+            img.save(IMG_TEMP, quality=95)
+    except Exception as e:
+        print(f"Erro imagem: {e}")
 
-def tocar_audio(texto, lang_voice):
+def tocar_audio(texto, voz, botao):
     if not texto or len(texto) < 5: return
-    def thread_audio():
+    texto_original = botao.text()
+    botao.setText("GERANDO ÁUDIO...")
+    def _run():
         try:
-            arquivo = f"temp_audio_{lang_voice[:2]}.mp3"
-            async def generate():
-                comm = edge_tts.Communicate(texto[:1000], lang_voice)
-                await comm.save(arquivo)
-            asyncio.run(generate())
+            arquivo = f"temp_audio_{voz[:2]}.mp3"
+            async def _gen():
+                await edge_tts.Communicate(texto[:2500], voz).save(arquivo)
+            asyncio.run(_gen())
             pygame.mixer.music.load(arquivo)
             pygame.mixer.music.play()
-        except Exception as e: print(f"Erro audio: {e}")
-    threading.Thread(target=thread_audio, daemon=True).start()
+        except: pass
+        finally:
+            botao.setText(texto_original)
+    threading.Thread(target=_run, daemon=True).start()
+
+def exibir_conteudo(url, titulo, expl):
+    if not url: return
+    lbl_titulo.setText("BUSCANDO...")
+    try:
+        res = requests.get(url, timeout=15)
+        processar_imagem(res.content)
+        
+        data_store.update({
+            'en_title': titulo, 'en_expl': expl,
+            'pt_title': traduzir(titulo), 'pt_expl': traduzir(expl),
+            'ia_report': gerar_relatorio_ia(expl), 'url': url
+        })
+
+        lbl_titulo.setText(f"{data_store['pt_title'].upper()}\n({titulo.upper()})")
+        lbl_img.setPixmap(QPixmap(IMG_TEMP).scaled(lbl_img.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        
+        txt_en.setPlainText(f"{data_store['en_title']}\n\n{data_store['en_expl']}")
+        txt_pt.setPlainText(f"{data_store['pt_title']}\n\n{data_store['pt_expl']}")
+        txt_ia.setPlainText(data_store['ia_report'])
+        tabs.setCurrentIndex(0)
+    except Exception as e:
+        QMessageBox.critical(None, "Erro", str(e))
+
+def buscar_keyword():
+    termo = edit_busca.text()
+    if not termo: return
+    
+    lbl_titulo.setText("BUSCANDO...")
+    combo_res.clear()
+    try:
+        res = requests.get(f"https://images-api.nasa.gov/search?q={termo}&media_type=image").json()
+        itens = res.get('collection', {}).get('items', [])[:15]
+        
+        if not itens:
+            lbl_titulo.setText("NADA ENCONTRADO")
+            return
+
+        combo_res.addItem(f"🔍 {len(itens)} resultados...")
+        for i in itens:
+            d = i['data'][0]
+            link = i['links'][0]['href'] if i.get('links') else None
+            combo_res.addItem("⭐ " + d.get('title', 'Sem título'))
+            combo_res.setItemData(combo_res.count()-1, {"url": link, "title": d.get('title'), "expl": d.get('description')}, Qt.UserRole)
+        
+        combo_res.show()
+        combo_res.showPopup()
+        lbl_titulo.setText("NASA EXPLORER")
+    except:
+        lbl_titulo.setText("ERRO NA BUSCA")
+
+def buscar_apod():
+    data_str = edit_data.date().toString("yyyy-MM-dd")
+    lbl_titulo.setText("BUSCANDO...")
+    try:
+        res = requests.get(f"https://api.nasa.gov/planetary/apod?api_key={NASA_API_KEY}&date={data_str}").json()
+        if 'url' in res:
+            exibir_conteudo(res.get('url'), res.get('title'), res.get('explanation'))
+            combo_res.hide()
+    except Exception as e:
+        lbl_titulo.setText("ERRO NA BUSCA")
+        QMessageBox.critical(None, "Erro", str(e))
+
+def salvar_img():
+    if not os.path.exists(IMG_TEMP): return
+    path, _ = QFileDialog.getSaveFileName(None, "Salvar", "", "JPEG (*.jpg);;PNG (*.png)")
+    if path: shutil.copy(IMG_TEMP, path)
+
+def gerar_vid():
+    if not data_store['en_expl']: return
+    prog = QProgressDialog("Gerando vídeo...", "Cancelar", 0, 0)
+    prog.show()
+
+    def _worker():
+        try:
+            dev = "cuda" if torch.cuda.is_available() else "cpu"
+            typ = torch.float16 if dev == "cuda" else torch.float32
+            
+            adapter = MotionAdapter.from_pretrained("guoyww/animatediff-motion-adapter-v1-5-2", torch_dtype=typ)
+            pipe = AnimateDiffPipeline.from_pretrained("runwayml/stable-diffusion-v1-5", motion_adapter=adapter, torch_dtype=typ)
+            pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config, algorithm_type="dpmsolver++", use_karras_sigmas=True)
+
+            if dev == "cuda": pipe.enable_model_cpu_offload()
+            else: pipe.to("cpu")
+
+            out = pipe(prompt=f"Space, {data_store['en_expl'][:100]}", num_frames=16, num_inference_steps=15)
+            export_to_video(out.frames[0], VID_TEMP, fps=8)
+            webbrowser.open(VID_TEMP)
+        except Exception as e: print(e)
+        finally: prog.cancel()
+
+    threading.Thread(target=_worker, daemon=True).start()
 
 app = QApplication(sys.argv)
-janela = QWidget()
-janela.setWindowTitle("NASA IA EXPLORER 2026")
-janela.resize(1200, 800)
+win = QWidget()
+win.setWindowTitle("NASA EXPLORER")
+win.resize(1200, 800)
 
-layout = QVBoxLayout()
-linha_pesquisa = QHBoxLayout()
-campo_pesquisa = QLineEdit()
-campo_pesquisa.setPlaceholderText("Ex: Mars, Galaxy...")
-btn_pesquisar = QPushButton("PESQUISAR")
+main_layout = QVBoxLayout(win)
+top_bar = QHBoxLayout()
+edit_busca = QLineEdit(); edit_busca.setPlaceholderText("Pesquisar...")
+btn_busca = QPushButton("PESQUISAR")
+edit_data = QDateEdit(QDate.currentDate()); edit_data.setCalendarPopup(True)
+edit_data.setMaximumDate(QDate.currentDate())
+btn_apod = QPushButton("APOD")
 
-calendario = QDateEdit(QDate.currentDate())
-calendario.setCalendarPopup(True)
-calendario.setMaximumDate(QDate.currentDate()) 
+for w in [edit_busca, btn_busca, edit_data, btn_apod]: top_bar.addWidget(w)
+main_layout.addLayout(top_bar)
 
-btn_apod = QPushButton("BUSCAR POR DATA")
+combo_res = QComboBox(); combo_res.hide()
+main_layout.addWidget(combo_res)
 
-linha_pesquisa.addWidget(campo_pesquisa)
-linha_pesquisa.addWidget(btn_pesquisar)
-linha_pesquisa.addSpacing(15)
-linha_pesquisa.addWidget(calendario)
-linha_pesquisa.addWidget(btn_apod)
-layout.addLayout(linha_pesquisa)
+lbl_titulo = QLabel("NASA EXPLORER")
+lbl_titulo.setStyleSheet("font-weight: bold; background: #222; color: white; padding: 10px;")
+lbl_titulo.setAlignment(Qt.AlignCenter)
+main_layout.addWidget(lbl_titulo)
 
-combo_resultados = QComboBox()
-combo_resultados.hide()
-layout.addWidget(combo_resultados)
+content_area = QHBoxLayout()
+lbl_img = QLabel("Selecione um conteúdo...")
+lbl_img.setStyleSheet("background: black; border: 1px solid #444;")
+lbl_img.setMinimumSize(700, 500)
+content_area.addWidget(lbl_img, 2)
 
-titulo_label = QLabel("NASA IA EXPLORER")
-titulo_label.setAlignment(Qt.AlignCenter)
-titulo_label.setStyleSheet("font-weight: bold; background-color: #222; color: #FFFFFF; padding: 10px; font-size: 14px;")
-layout.addWidget(titulo_label)
+tabs = QTabWidget()
+def add_tab(name, color, voice):
+    w = QWidget(); l = QVBoxLayout(w)
+    txt = QTextEdit(); txt.setReadOnly(True)
+    btn = QPushButton(f"OUVIR {name}")
+    btn.setStyleSheet(f"background: {color}; color: white; font-weight: bold; padding: 8px;")
+    btn.clicked.connect(lambda: tocar_audio(txt.toPlainText(), voice, btn))
+    l.addWidget(txt); l.addWidget(btn)
+    tabs.addTab(w, name)
+    return txt
 
-area_central = QHBoxLayout()
-imagem_label = QLabel("Selecione uma data ou pesquise...")
-imagem_label.setAlignment(Qt.AlignCenter)
-imagem_label.setStyleSheet("background-color: black; border: 1px solid #444;")
-imagem_label.setMinimumSize(700, 550)
-area_central.addWidget(imagem_label, 2)
+txt_en = add_tab("ENGLISH", "#2E86AB", "en-US-AriaNeural")
+txt_pt = add_tab("PORTUGUÊS", "#A23B72", "pt-BR-FranciscaNeural")
+txt_ia = add_tab("ANÁLISE IA", "#F18F01", "pt-BR-FranciscaNeural")
 
-tabs_descricao = QTabWidget()
-aba_ingles = QTextEdit(); aba_ingles.setReadOnly(True)
-aba_portugues = QTextEdit(); aba_portugues.setReadOnly(True)
-aba_ia = QTextEdit(); aba_ia.setReadOnly(True)
+content_area.addWidget(tabs, 1)
+main_layout.addLayout(content_area)
 
-def criar_aba(widget_texto, btn_text, cor, func_audio):
-    w = QWidget(); l = QVBoxLayout()
-    b = QPushButton(btn_text); b.setStyleSheet(f"background-color: {cor}; color: white; font-weight: bold; padding: 10px;")
-    b.clicked.connect(func_audio)
-    l.addWidget(widget_texto); l.addWidget(b); w.setLayout(l)
-    return w
-
-tabs_descricao.addTab(criar_aba(aba_ingles, "▶ OUVIR EN", "#2E86AB", lambda: tocar_audio(aba_ingles.toPlainText(), "en-US-AriaNeural")), "ENGLISH")
-tabs_descricao.addTab(criar_aba(aba_portugues, "▶ OUVIR PT", "#A23B72", lambda: tocar_audio(aba_portugues.toPlainText(), "pt-BR-FranciscaNeural")), "PORTUGUÊS")
-tabs_descricao.addTab(criar_aba(aba_ia, "▶ OUVIR IA", "#F18F01", lambda: tocar_audio(aba_ia.toPlainText(), "pt-BR-FranciscaNeural")), "ANÁLISE IA")
-
-area_central.addWidget(tabs_descricao, 1)
-layout.addLayout(area_central)
-
-rodape = QHBoxLayout()
-btn_stop = QPushButton("⏹ PARAR ÁUDIO"); btn_save = QPushButton("💾 SALVAR IMAGEM")
+bot_bar = QHBoxLayout()
+btn_stop = QPushButton("⏹ PARAR"); btn_save = QPushButton("💾 SALVAR"); btn_vid = QPushButton("🎬 VÍDEO")
 btn_stop.clicked.connect(lambda: pygame.mixer.music.stop())
-btn_save.clicked.connect(salvar_imagem)
-rodape.addWidget(btn_stop); rodape.addStretch(); rodape.addWidget(btn_save)
-layout.addLayout(rodape)
+btn_save.clicked.connect(salvar_img)
+btn_vid.clicked.connect(gerar_vid)
 
-janela.setLayout(layout)
-btn_pesquisar.clicked.connect(buscar_palavra_chave)
-campo_pesquisa.returnPressed.connect(buscar_palavra_chave)
-combo_resultados.currentIndexChanged.connect(carregar_da_combo)
-btn_apod.clicked.connect(carregar_conteudo)
+for b in [btn_stop, btn_save, btn_vid]: bot_bar.addWidget(b)
+main_layout.addLayout(bot_bar)
 
-janela.show()
+btn_busca.clicked.connect(buscar_keyword)
+edit_busca.returnPressed.connect(buscar_keyword)
+btn_apod.clicked.connect(buscar_apod)
+combo_res.currentIndexChanged.connect(lambda i: exibir_conteudo(combo_res.itemData(i)['url'], combo_res.itemData(i)['title'], combo_res.itemData(i)['expl']) if i>0 else None)
+
+win.show()
 sys.exit(app.exec_())
