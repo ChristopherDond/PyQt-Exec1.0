@@ -1,35 +1,195 @@
-Projects Overview -
+<div align="center">
 
-1. PyQt1_0.py (User Registration System): 
-- A robust registration module featuring Brazilian data standards. It includes real-time validation for CPF and RG, along with full integration with the Brazilian postal service for address auto-completion.
+<img src="https://upload.wikimedia.org/wikipedia/commons/0/0a/Python.svg" width="70" alt="Python Logo" />
 
+# ⚡ PyQt Exec 1.0
 
-2. PyQt2_0.py (ViaCEP Address Finder): 
-- A streamlined address lookup tool powered by the ViaCEP API. Users can retrieve complete location details instantly by entering a Brazilian postal code (CEP).
+**Six hands-on PyQt5 desktop exercises — from simple forms to AI-powered space explorers.**
 
+A progressive learning journey through Python GUI development, external APIs, and artificial intelligence.
 
-3. PyQt3_0.py (Crypto Currency Tracker): 
-- A financial dashboard integrated with the CoinGecko API. It fetches real-time cryptocurrency prices and provides automatic conversion to both Brazilian Real (BRL) and US Dollar (USD).
+[![Python](https://img.shields.io/badge/Python-3.8+-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
+[![PyQt5](https://img.shields.io/badge/PyQt5-GUI-41CD52?style=flat-square&logo=qt&logoColor=white)](https://riverbankcomputing.com/software/pyqt/)
+[![NASA API](https://img.shields.io/badge/NASA-APOD%20API-0B3D91?style=flat-square)](https://api.nasa.gov/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](./LICENSE)
 
+</div>
 
-4. PyQt4_0.py (NASA APOD Explorer & AI Analyst): An advanced astronomical tool that fetches NASA's Astronomy Picture of the Day. It features:
-- Gemini 2.0 Flash AI: Generates automated scientific reports of space images.
-- Multilingual Support: Auto-translates NASA's data into Portuguese.
-- Media Handling: Supports high-res image saving and embedded video playback.
+---
 
+## ✨ About
 
-5. PyQt5_0.py NASA Explorer (AI-Powered Space Reporter):
-- An advanced astronomical dashboard that transforms NASA’s raw data into an immersive multimedia experience. Key features include:
-Multimodal AI Pipeline: Integrates Groq (Llama 3.1) for deep scientific reporting and Kling AI (via Fal.ai) to animate static space images into 5-second cinematic videos.
-- Smart Content Layering: Features a three-tier information display: original NASA technical data, automated Portuguese translation, and AI-generated historical analysis.
-- Interactive Voice & Media: Built-in Edge-TTS narration for accessibility and a customized PyQt5 video player for real-time viewing of AI-generated cosmic motion.
-- Time-Travel Navigation: Full calendar synchronization allowing users to explore decades of NASA's APOD archives with automated UI state management.
+**PyQt Exec 1.0** is a collection of six progressive desktop application exercises built in Python with PyQt5. Each exercise explores a new layer of GUI development — starting from basic form handling and API requests, then evolving into full-featured apps powered by NASA's API, AI language models, text-to-speech, and even AI video generation.
 
+---
 
-6. 6.py — NASA Explorer v2.0 (Search, AI & Media Lab):
-- A comprehensive desktop application that unifies NASA image discovery, AI-powered scientific analysis, and multimedia generation into a single PyQt5 interface.
-Hybrid NASA Access: Integrates APOD (date-based astronomy content) with a keyword-driven search engine for the NASA Image Library, supporting instant previews via QComboBox.
-- AI Analysis Pipeline: Uses Llama 3.1 (via Groq API) to generate detailed scientific reports in PT-BR, alongside automatic translation of titles and descriptions.
-- Enhanced Media Processing: Applies autocontrast and sharpness filters to images (Pillow) and can generate short AI-animated space videos using AnimateDiff + Stable Diffusion.
-- Multilingual Voice Narration: Three-tab system (English, Portuguese, AI Analysis) with independent Edge-TTS speech synthesis and real-time audio playback.
-- Robust UX & Local Control: Threaded tasks, error handling, file export (images/video), GPU/CPU auto-detection, and an intuitive layout designed for smooth astronomical exploration.
+## 📁 Project Structure
+
+```
+PyQt-Exec1.0/
+│
+├── PyQt1_0.py        # Exercise 1 — Full registration form with ViaCEP auto-fill
+├── PyQt2_0.py        # Exercise 2 — Simple CEP lookup (ViaCEP)
+├── PyQt3_0.py        # Exercise 3 — Crypto price checker (CoinGecko API)
+├── PyQt4_0.py        # Exercise 4 — NASA APOD Explorer with Gemini AI analysis
+├── PyQt5_0.py        # Exercise 5 — NASA Explorer + Groq AI + TTS + Kling AI video
+├── PyQt6_0.py        # Exercise 6 — Full NASA Explorer with local AnimateDiff video
+│
+├── .env              # API keys (NASA, Gemini, Groq, Fal.ai) — not committed
+├── requirements.txt  # Project dependencies
+└── README.md
+```
+
+---
+
+## 🧪 Exercises
+
+### `PyQt1_0.py` — Registration Form with ViaCEP Auto-fill
+> *A complete personal data registration form.*
+
+Full-featured cadastro UI with styled inputs, input masks for CPF, RG and CEP, a date picker, and a state selector (UF ComboBox). On CEP input, it automatically queries the **ViaCEP API** and fills in the street, neighborhood, city and state. Includes field validation with error listing and a clear/reset button.
+
+**Key concepts:** `QLineEdit` input masks, `QDateEdit`, `QComboBox`, `QMessageBox`, `editingFinished` signal, ViaCEP REST API, form validation, stylesheet theming.
+
+---
+
+### `PyQt2_0.py` — Simple CEP Lookup
+> *A minimal address lookup tool using the ViaCEP API.*
+
+The simplest version of the CEP lookup concept — a lightweight window with a masked CEP field, a search button, and read-only result fields for street, neighborhood, city and state. Serves as the foundational prototype before the full form in Exercise 1.
+
+**Key concepts:** `QLineEdit`, `setEnabled(False)` for read-only fields, `QMessageBox`, basic ViaCEP API call, `setInputMask`.
+
+---
+
+### `PyQt3_0.py` — Crypto Price Checker
+> *A real-time cryptocurrency price search tool.*
+
+Enter any cryptocurrency name (e.g. `bitcoin`, `ethereum`) and fetch live prices in both **BRL** and **USD** via the **CoinGecko API**. Features dynamic label color feedback (blue for success, red/orange for errors) and a loading state while the request is in progress.
+
+**Key concepts:** `QLabel`, `QLineEdit`, `QPushButton`, `processEvents()` for UI responsiveness, CoinGecko REST API, error handling with visual feedback.
+
+---
+
+### `PyQt4_0.py` — NASA APOD Explorer + Gemini AI
+> *Browse NASA's Astronomy Picture of the Day with AI-generated scientific reports.*
+
+Date navigation to browse any APOD entry, with automatic translation (EN → PT) via `deep_translator`. Images are displayed inline; videos load via `QWebEngineView`. Each image is analyzed by **Google Gemini 2.0 Flash**, which generates a scientific report in Portuguese. Includes an option to save the current image to disk.
+
+**Key concepts:** `QStackedWidget`, `QWebEngineView`, `QFileDialog`, `QDateEdit`, `QPixmap`, NASA APOD API, `deep_translator`, `google.generativeai` (Gemini), PIL for image decoding, `.env` secrets.
+
+---
+
+### `PyQt5_0.py` — NASA Explorer + Groq AI + TTS + Kling AI Video
+> *A feature-rich NASA explorer with voice narration and AI video generation.*
+
+Builds on Exercise 4 with significant upgrades: AI reports are now generated by **LLaMA 3.1** via **Groq**; a text-to-speech engine (`edge_tts` + `pygame`) reads the content aloud in Brazilian Portuguese; and a dedicated button triggers **Kling AI** (via `fal.ai`) to generate a **5-second cinematic video** from the NASA image, rendered in a separate video player window. All heavy operations run on background threads to keep the UI responsive.
+
+**Key concepts:** `threading`, `asyncio`, `edge_tts`, `pygame.mixer`, `fal_client`, Groq SDK, `QTimer.singleShot` for thread-safe UI updates, `QMessageBox`, custom `JanelaVideo` widget with embedded HTML5 player.
+
+---
+
+### `PyQt6_0.py` — Full NASA Explorer with Local AnimateDiff Video
+> *The most complete exercise — a polished multi-tab NASA research app with local AI video generation.*
+
+A fully rearchitected NASA explorer with a dual search system: **APOD by date** and free-text search via the **NASA Images API** with dropdown results. Content is displayed in three tabs — English, Portuguese, and AI Analysis. Images are enhanced with PIL (auto-contrast + sharpness). TTS supports multiple voices per language. Video generation runs **locally** using **AnimateDiff + Stable Diffusion**, with GPU/CPU auto-detection via PyTorch. Includes save-to-disk for images and an overall cleaner, more modular codebase.
+
+**Key concepts:** `QTabWidget`, `QComboBox` with `UserRole` data, `QProgressDialog`, `QFileDialog`, `diffusers` (AnimateDiff pipeline), `torch` (CUDA/CPU), `ImageEnhance` / `ImageOps` (PIL), NASA Images API, Groq + LLaMA, `edge_tts`, `pygame`, fully modular function design.
+
+---
+
+## 🛠️ Tech Stack
+
+| Category | Libraries / Tools |
+|---|---|
+| GUI | PyQt5 |
+| HTTP Requests | `requests` |
+| Translation | `deep_translator` (Google Translate) |
+| Text-to-Speech | `edge_tts`, `pygame` |
+| AI — Cloud | Google Gemini 2.0 Flash, Groq (LLaMA 3.1) |
+| AI — Video (cloud) | Kling AI via `fal_client` |
+| AI — Video (local) | `diffusers` AnimateDiff + Stable Diffusion |
+| Image Processing | `Pillow` (PIL) |
+| APIs | ViaCEP, CoinGecko, NASA APOD, NASA Images |
+| Config | `python-dotenv` |
+
+---
+
+## 📦 Getting Started
+
+### Prerequisites
+
+- Python 3.8+
+- pip
+
+### Installation
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/ChristopherDond/PyQt-Exec1.0.git
+cd PyQt-Exec1.0
+
+# 2. (Recommended) Create a virtual environment
+python -m venv venv
+source venv/bin/activate       # Linux / macOS
+venv\Scripts\activate          # Windows
+
+# 3. Install dependencies
+pip install -r requirements.txt
+```
+
+### Environment Variables
+
+For exercises 4, 5 and 6, create a `.env` file in the project root:
+
+```env
+NASA_API_KEY=your_nasa_api_key
+GEMINI_API_KEY=your_gemini_api_key     # Exercise 4 only
+GROQ_API_KEY=your_groq_api_key         # Exercises 5 and 6
+FAL_KEY=your_fal_api_key               # Exercise 5 only
+```
+
+> 💡 Free API keys: [NASA](https://api.nasa.gov/) · [Gemini](https://aistudio.google.com/) · [Groq](https://console.groq.com/) · [Fal.ai](https://fal.ai/)
+
+### Running any exercise
+
+```bash
+python PyQt1_0.py   # or PyQt2_0.py, PyQt3_0.py, etc.
+```
+
+---
+
+## 📈 Learning Progression
+
+```
+PyQt2  →  PyQt1  →  PyQt3  →  PyQt4  →  PyQt5  →  PyQt6
+Basic      Forms    Live       NASA       NASA +     Full
+CEP        +Masks   Crypto     + Gemini   TTS +      App +
+Lookup     +Style   Prices     Reports    Kling AI   Local AI
+```
+
+Each exercise intentionally builds on the previous — new widgets, new APIs, more complex threading, and progressively richer user experiences.
+
+---
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/your-idea`
+3. Commit: `git commit -m "feat: describe your change"`
+4. Push: `git push origin feature/your-idea`
+5. Open a Pull Request
+
+---
+
+## 📄 License
+
+This project is licensed under the [MIT License](./LICENSE).
+
+---
+
+<div align="center">
+
+Made with 🐍 ☕ and a lot of `app.exec_()` by [ChristopherDond](https://github.com/ChristopherDond)
+
+</div>
