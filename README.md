@@ -1,3 +1,5 @@
+[Leia em Português (Brasil)](README-pt-br.md)
+
 <div align="center">
 
 <img src="https://upload.wikimedia.org/wikipedia/commons/0/0a/Python.svg" width="70" alt="Python Logo" />
